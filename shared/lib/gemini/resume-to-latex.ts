@@ -75,7 +75,6 @@ interface ConvertResumeToLatexOptions {
   base64FilesData?: string[];
   mimeTypes?: string[];
   fileNames?: string[];
-  extractedTexts?: string[]; // For DOCX files that have been converted to text
 }
 
 /**
@@ -94,9 +93,9 @@ export async function convertResumeToLatex(
 
     const genAI = getGeminiClient();
 
-    // Get the Gemini 2.5 Flash model that can process text and images
+    // Get the Gemini 2.5 Pro model that can process documents including DOCX
     const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
+      model: "gemini-2.5-pro",
       safetySettings,
       generationConfig,
     });
@@ -113,14 +112,9 @@ export async function convertResumeToLatex(
       for (let i = 0; i < options.base64FilesData.length; i++) {
         const base64Data = options.base64FilesData[i];
         const mimeType = options.mimeTypes[i];
-        const extractedText = options.extractedTexts?.[i];
 
-        // If we have extracted text (from DOCX), use that instead of base64
-        if (extractedText) {
-          console.log(`Adding extracted text for file ${i} (${extractedText.length} chars)`);
-          contentParts.push(`\n--- Document Content from ${options.fileNames?.[i] || 'uploaded file'} ---\n${extractedText}\n--- End of Document ---\n`);
-        } else if (base64Data && mimeType) {
-          // Create a part from the base64 data (for PDF, images, etc.)
+        if (base64Data && mimeType) {
+          // Create a part from the base64 data
           const part = await base64ToGenerativePart(base64Data, mimeType);
           contentParts.push(part);
         }
