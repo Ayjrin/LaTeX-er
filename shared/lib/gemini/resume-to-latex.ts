@@ -94,9 +94,9 @@ export async function convertResumeToLatex(
 
     const genAI = getGeminiClient();
 
-    // Get the Gemini 2.5 Flash model for text-based conversion
+    // Get the Gemini 2.0 Flash model - supports multimodal input (PDF, DOCX, images)
     const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
+      model: "gemini-2.0-flash-exp",
       safetySettings,
       generationConfig,
     });
@@ -107,9 +107,42 @@ export async function convertResumeToLatex(
       | { inlineData: { data: string; mimeType: string } };
     const contentParts: ContentPart[] = [promptWithTemplate];
 
-    // Primary path: Handle extracted text content from DOCX/PDF files
-    if (options.extractedTexts && options.extractedTexts.length > 0) {
-      console.log(`Processing ${options.extractedTexts.length} extracted text documents`);
+    // Primary path: Send files directly to Gemini (preserves formatting and layout)
+    if (options.base64FilesData && options.mimeTypes) {
+      console.log(`Processing ${options.base64FilesData.length} files directly (multimodal approach)`);
+      
+      for (let i = 0; i < options.base64FilesData.length; i++) {
+        const base64Data = options.base64FilesData[i];
+        const mimeType = options.mimeTypes[i];
+
+        if (base64Data && mimeType) {
+          const part = base64ToGenerativePart(base64Data, mimeType);
+          contentParts.push(part);
+        }
+      }
+
+      if (options.fileNames && options.fileNames.length > 0) {
+        const fileList = options.fileNames
+          .map((name) => `- ${name}`)
+          .join("\n");
+        contentParts.push(
+          `\nNote: The following documents have been provided:\n${fileList}\n\nPlease analyze the complete documents (including formatting and layout) and create a comprehensive, professional LaTeX resume.`,
+        );
+      }
+    } 
+    // Single file path
+    else if (options.base64FileData && options.mimeType) {
+      console.log('Processing single file directly (multimodal approach)');
+      const part = base64ToGenerativePart(
+        options.base64FileData,
+        options.mimeType,
+      );
+      contentParts.push(part);
+    }
+    // Legacy text-based path (fallback for backward compatibility)
+    else if (options.extractedTexts && options.extractedTexts.length > 0) {
+      console.log(`[LEGACY] Processing ${options.extractedTexts.length} extracted text documents`);
+      console.warn('Warning: Using text extraction instead of direct file processing. Consider updating to file-based approach.');
       
       for (let i = 0; i < options.extractedTexts.length; i++) {
         const text = options.extractedTexts[i];
@@ -128,39 +161,10 @@ export async function convertResumeToLatex(
           `\nNote: The above content was extracted from:\n${fileList}\n\nPlease use this information to create a comprehensive, professional LaTeX resume.`
         );
       }
-    }
-    // Legacy path: Handle base64 file data (kept for backward compatibility)
-    else if (options.multipleFiles && options.base64FilesData && options.mimeTypes) {
-      console.log(`Processing ${options.base64FilesData.length} base64-encoded files`);
-      
-      for (let i = 0; i < options.base64FilesData.length; i++) {
-        const base64Data = options.base64FilesData[i];
-        const mimeType = options.mimeTypes[i];
-
-        if (base64Data && mimeType) {
-          const part = await base64ToGenerativePart(base64Data, mimeType);
-          contentParts.push(part);
-        }
-      }
-
-      if (options.fileNames && options.fileNames.length > 0) {
-        const fileList = options.fileNames
-          .map((name) => `- ${name}`)
-          .join("\n");
-        contentParts.push(
-          `Note: The following documents have been provided:\n${fileList}\n\nPlease extract information from all documents and create a comprehensive resume.`,
-        );
-      }
-    } else if (options.base64FileData && options.mimeType) {
-      console.log('Processing single base64-encoded file');
-      const part = await base64ToGenerativePart(
-        options.base64FileData,
-        options.mimeType,
-      );
-      contentParts.push(part);
-    } else {
+    } 
+    else {
       throw new Error(
-        "Invalid options: Either extractedTexts, base64FileData, or base64FilesData must be provided",
+        "Invalid options: Either base64FileData, base64FilesData, or extractedTexts must be provided",
       );
     }
 

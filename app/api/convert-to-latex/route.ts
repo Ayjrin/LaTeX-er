@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from 'next/server';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 import { convertResumeToLatex } from '@/shared/lib/gemini';
-import mammoth from 'mammoth';
 
 // Add detailed logging
 function logApiRequest(method: string, url: string, body?: any) {
@@ -48,8 +47,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(errorResponse, { status: 400 });
     }
 
-    // Extract file data and text content
-    const extractedTexts: string[] = [];
+    // Prepare file data for Gemini (send actual files, not extracted text)
+    const base64FilesData: string[] = [];
+    const mimeTypes: string[] = [];
     const fileNames: string[] = [];
     
     console.log('Processing files for conversion to LaTeX...');
@@ -61,62 +61,58 @@ export async function POST(req: NextRequest) {
       
       console.log(`Processing file: ${file.name} (${file.type}, ${file.size} bytes)`);
       try {
-        const arrayBuffer = await file.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-        let extractedText = '';
-        
-        // Check file type and extract text accordingly
+        // Validate file type
         const isDOCX = file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
                        file.name.toLowerCase().endsWith('.docx');
         const isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
         
-        if (isDOCX) {
-          console.log(`Extracting text from DOCX file: ${file.name}`);
-          const result = await mammoth.extractRawText({ buffer });
-          extractedText = result.value;
-          console.log(`Successfully extracted ${extractedText.length} characters from DOCX: ${file.name}`);
-        } else if (isPDF) {
-          console.log(`Extracting text from PDF file: ${file.name}`);
-          // Use require for pdf-parse since it's a CommonJS module
-          const pdfParseModule = await import('pdf-parse');
-          const pdfParse = (pdfParseModule as any).default || pdfParseModule;
-          const pdfData = await pdfParse(buffer);
-          extractedText = pdfData.text;
-          console.log(`Successfully extracted ${extractedText.length} characters from PDF: ${file.name}`);
-        } else {
+        if (!isDOCX && !isPDF) {
           console.warn(`Unsupported file type for ${file.name}, skipping...`);
           continue;
         }
         
-        if (!extractedText || extractedText.trim().length === 0) {
-          console.error(`No text content extracted from ${file.name}`);
-          throw new Error(`Failed to extract text content from ${file.name}`);
+        // Convert file to base64 to send directly to Gemini
+        const arrayBuffer = await file.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        const base64Data = buffer.toString('base64');
+        
+        // Determine the correct MIME type
+        let mimeType = file.type;
+        if (!mimeType) {
+          if (isPDF) {
+            mimeType = 'application/pdf';
+          } else if (isDOCX) {
+            mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+          }
         }
         
-        extractedTexts.push(extractedText);
+        base64FilesData.push(base64Data);
+        mimeTypes.push(mimeType);
         fileNames.push(file.name);
-        console.log(`Successfully processed file: ${file.name}`);
+        
+        console.log(`Successfully prepared file: ${file.name} (${base64Data.length} base64 chars)`);
       } catch (error) {
         console.error('Error processing file:', file.name, error);
         throw new Error(`Failed to process ${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
     
-    if (extractedTexts.length === 0) {
+    if (base64FilesData.length === 0) {
       console.error('No valid files were processed');
-      const errorResponse = { error: 'No valid files found or no text could be extracted.' };
+      const errorResponse = { error: 'No valid files found.' };
       logApiResponse(400, errorResponse);
       return NextResponse.json(errorResponse, { status: 400 });
     }
     
-    console.log(`Successfully processed ${extractedTexts.length} files for LaTeX conversion`);
+    console.log(`Successfully processed ${base64FilesData.length} files for LaTeX conversion`);
 
-
-    // Convert to LaTeX using Gemini (text-based conversion)
+    // Convert to LaTeX using Gemini (send files directly to leverage multimodal capabilities)
     console.log('Calling Gemini API to convert resume to LaTeX...');
     try {
       const latexCode = await convertResumeToLatex({
-        extractedTexts,
+        multipleFiles: base64FilesData.length > 1,
+        base64FilesData,
+        mimeTypes,
         fileNames,
       });
       
