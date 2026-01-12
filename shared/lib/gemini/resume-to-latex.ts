@@ -75,6 +75,7 @@ interface ConvertResumeToLatexOptions {
   base64FilesData?: string[];
   mimeTypes?: string[];
   fileNames?: string[];
+  extractedTexts?: string[]; // For DOCX files that have been converted to text
 }
 
 /**
@@ -112,9 +113,14 @@ export async function convertResumeToLatex(
       for (let i = 0; i < options.base64FilesData.length; i++) {
         const base64Data = options.base64FilesData[i];
         const mimeType = options.mimeTypes[i];
+        const extractedText = options.extractedTexts?.[i];
 
-        if (base64Data && mimeType) {
-          // Create a part from the base64 data
+        // If we have extracted text (from DOCX), use that instead of base64
+        if (extractedText) {
+          console.log(`Adding extracted text for file ${i} (${extractedText.length} chars)`);
+          contentParts.push(`\n--- Document Content from ${options.fileNames?.[i] || 'uploaded file'} ---\n${extractedText}\n--- End of Document ---\n`);
+        } else if (base64Data && mimeType) {
+          // Create a part from the base64 data (for PDF, images, etc.)
           const part = await base64ToGenerativePart(base64Data, mimeType);
           contentParts.push(part);
         }

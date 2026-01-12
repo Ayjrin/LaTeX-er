@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 import { convertResumeToLatex } from '@/shared/lib/gemini';
+import mammoth from 'mammoth';
 
 // Add detailed logging
 function logApiRequest(method: string, url: string, body?: any) {
@@ -51,6 +52,7 @@ export async function POST(req: NextRequest) {
     const base64FilesData: string[] = [];
     const mimeTypes: string[] = [];
     const fileNames: string[] = [];
+    const extractedTexts: string[] = [];
     
     console.log('Processing files for conversion to LaTeX...');
     for (const file of files) {
@@ -62,11 +64,36 @@ export async function POST(req: NextRequest) {
       console.log(`Processing file: ${file.name} (${file.type}, ${file.size} bytes)`);
       try {
         const arrayBuffer = await file.arrayBuffer();
-        const base64 = Buffer.from(arrayBuffer).toString('base64');
-        base64FilesData.push(base64);
-        mimeTypes.push(file.type);
-        fileNames.push(file.name);
-        console.log(`Successfully processed file: ${file.name}`);
+        
+        // Check if file is DOCX and extract text instead of sending as binary
+        const isDOCX = file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+                       file.name.toLowerCase().endsWith('.docx');
+        
+        if (isDOCX) {
+          console.log(`Extracting text from DOCX file: ${file.name}`);
+          try {
+            const result = await mammoth.extractRawText({ arrayBuffer });
+            const extractedText = result.value;
+            console.log(`Successfully extracted ${extractedText.length} characters from ${file.name}`);
+            
+            // Store extracted text and mark as plain text
+            extractedTexts.push(extractedText);
+            base64FilesData.push(''); // Empty for text-based files
+            mimeTypes.push('text/plain');
+            fileNames.push(file.name);
+          } catch (docxError) {
+            console.error('Error extracting text from DOCX:', file.name, docxError);
+            throw new Error(`Failed to extract text from DOCX file: ${file.name}`);
+          }
+        } else {
+          // For non-DOCX files (PDF, images, etc.), use base64 encoding
+          const base64 = Buffer.from(arrayBuffer).toString('base64');
+          base64FilesData.push(base64);
+          mimeTypes.push(file.type);
+          fileNames.push(file.name);
+          extractedTexts.push(''); // Empty for binary files
+          console.log(`Successfully processed file: ${file.name}`);
+        }
       } catch (error) {
         console.error('Error processing file:', file.name, error);
         // Continue with other files instead of failing completely
@@ -92,6 +119,7 @@ export async function POST(req: NextRequest) {
         base64FilesData,
         mimeTypes,
         fileNames,
+        extractedTexts,
       });
       
       console.log('Successfully converted resume to LaTeX');
