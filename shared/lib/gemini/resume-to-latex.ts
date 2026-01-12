@@ -95,7 +95,7 @@ export async function convertResumeToLatex(
 
     // Get the Gemini 1.5 Flash model that can process text and images
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
+      model: "gemini-3-flash-preview",
       safetySettings,
       generationConfig,
     });
