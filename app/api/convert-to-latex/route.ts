@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 import { convertResumeToLatex } from '@/shared/lib/gemini';
+import mammoth from 'mammoth';
 
 // Add detailed logging
 function logApiRequest(method: string, url: string, body?: any) {
@@ -47,9 +48,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(errorResponse, { status: 400 });
     }
 
-    // Extract file data
-    const base64FilesData: string[] = [];
-    const mimeTypes: string[] = [];
+    // Extract file data and text content
+    const extractedTexts: string[] = [];
     const fileNames: string[] = [];
     
     console.log('Processing files for conversion to LaTeX...');
@@ -62,35 +62,61 @@ export async function POST(req: NextRequest) {
       console.log(`Processing file: ${file.name} (${file.type}, ${file.size} bytes)`);
       try {
         const arrayBuffer = await file.arrayBuffer();
-        const base64 = Buffer.from(arrayBuffer).toString('base64');
-        base64FilesData.push(base64);
-        mimeTypes.push(file.type);
+        const buffer = Buffer.from(arrayBuffer);
+        let extractedText = '';
+        
+        // Check file type and extract text accordingly
+        const isDOCX = file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+                       file.name.toLowerCase().endsWith('.docx');
+        const isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+        
+        if (isDOCX) {
+          console.log(`Extracting text from DOCX file: ${file.name}`);
+          const result = await mammoth.extractRawText({ buffer });
+          extractedText = result.value;
+          console.log(`Successfully extracted ${extractedText.length} characters from DOCX: ${file.name}`);
+        } else if (isPDF) {
+          console.log(`Extracting text from PDF file: ${file.name}`);
+          // Use require for pdf-parse since it's a CommonJS module
+          const pdfParseModule = await import('pdf-parse');
+          const pdfParse = (pdfParseModule as any).default || pdfParseModule;
+          const pdfData = await pdfParse(buffer);
+          extractedText = pdfData.text;
+          console.log(`Successfully extracted ${extractedText.length} characters from PDF: ${file.name}`);
+        } else {
+          console.warn(`Unsupported file type for ${file.name}, skipping...`);
+          continue;
+        }
+        
+        if (!extractedText || extractedText.trim().length === 0) {
+          console.error(`No text content extracted from ${file.name}`);
+          throw new Error(`Failed to extract text content from ${file.name}`);
+        }
+        
+        extractedTexts.push(extractedText);
         fileNames.push(file.name);
         console.log(`Successfully processed file: ${file.name}`);
       } catch (error) {
         console.error('Error processing file:', file.name, error);
-        // Continue with other files instead of failing completely
-        continue;
+        throw new Error(`Failed to process ${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
     
-    if (base64FilesData.length === 0) {
+    if (extractedTexts.length === 0) {
       console.error('No valid files were processed');
-      const errorResponse = { error: 'No valid files found.' };
+      const errorResponse = { error: 'No valid files found or no text could be extracted.' };
       logApiResponse(400, errorResponse);
       return NextResponse.json(errorResponse, { status: 400 });
     }
     
-    console.log(`Successfully processed ${base64FilesData.length} files for LaTeX conversion`);
+    console.log(`Successfully processed ${extractedTexts.length} files for LaTeX conversion`);
 
 
-    // Convert to LaTeX using Gemini (multi-file support)
+    // Convert to LaTeX using Gemini (text-based conversion)
     console.log('Calling Gemini API to convert resume to LaTeX...');
     try {
       const latexCode = await convertResumeToLatex({
-        multipleFiles: true,
-        base64FilesData,
-        mimeTypes,
+        extractedTexts,
         fileNames,
       });
       

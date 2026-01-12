@@ -66,15 +66,16 @@ ${template}
 };
 
 interface ConvertResumeToLatexOptions {
+  // Text-based options (for extracted content from DOCX/PDF)
+  extractedTexts?: string[];
+  fileNames?: string[];
+  // Legacy options (kept for backward compatibility)
   multipleFiles?: boolean;
-  // Single file options
   base64FileData?: string;
   mimeType?: string;
   fileName?: string;
-  // Multiple files options
   base64FilesData?: string[];
   mimeTypes?: string[];
-  fileNames?: string[];
 }
 
 /**
@@ -93,34 +94,55 @@ export async function convertResumeToLatex(
 
     const genAI = getGeminiClient();
 
-    // Get the Gemini 2.5 Pro model that can process documents including DOCX
+    // Get the Gemini 2.5 Flash model for text-based conversion
     const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-pro",
+      model: "gemini-2.5-flash",
       safetySettings,
       generationConfig,
     });
 
     // Array to hold all content parts for the model
-    // Define a type that can accept both strings and inline data objects
     type ContentPart =
       | string
       | { inlineData: { data: string; mimeType: string } };
     const contentParts: ContentPart[] = [promptWithTemplate];
 
-    if (options.multipleFiles && options.base64FilesData && options.mimeTypes) {
-      // Handle multiple files
+    // Primary path: Handle extracted text content from DOCX/PDF files
+    if (options.extractedTexts && options.extractedTexts.length > 0) {
+      console.log(`Processing ${options.extractedTexts.length} extracted text documents`);
+      
+      for (let i = 0; i < options.extractedTexts.length; i++) {
+        const text = options.extractedTexts[i];
+        const fileName = options.fileNames?.[i] || `Document ${i + 1}`;
+        
+        contentParts.push(
+          `\n--- Resume Content from ${fileName} ---\n${text}\n--- End of Resume Content ---\n`
+        );
+      }
+      
+      if (options.fileNames && options.fileNames.length > 0) {
+        const fileList = options.fileNames
+          .map((name) => `- ${name}`)
+          .join("\n");
+        contentParts.push(
+          `\nNote: The above content was extracted from:\n${fileList}\n\nPlease use this information to create a comprehensive, professional LaTeX resume.`
+        );
+      }
+    }
+    // Legacy path: Handle base64 file data (kept for backward compatibility)
+    else if (options.multipleFiles && options.base64FilesData && options.mimeTypes) {
+      console.log(`Processing ${options.base64FilesData.length} base64-encoded files`);
+      
       for (let i = 0; i < options.base64FilesData.length; i++) {
         const base64Data = options.base64FilesData[i];
         const mimeType = options.mimeTypes[i];
 
         if (base64Data && mimeType) {
-          // Create a part from the base64 data
           const part = await base64ToGenerativePart(base64Data, mimeType);
           contentParts.push(part);
         }
       }
 
-      // Add a note about multiple documents if we have file names
       if (options.fileNames && options.fileNames.length > 0) {
         const fileList = options.fileNames
           .map((name) => `- ${name}`)
@@ -130,7 +152,7 @@ export async function convertResumeToLatex(
         );
       }
     } else if (options.base64FileData && options.mimeType) {
-      // Handle single file for backward compatibility
+      console.log('Processing single base64-encoded file');
       const part = await base64ToGenerativePart(
         options.base64FileData,
         options.mimeType,
@@ -138,7 +160,7 @@ export async function convertResumeToLatex(
       contentParts.push(part);
     } else {
       throw new Error(
-        "Invalid options: Either base64FileData or base64FilesData must be provided",
+        "Invalid options: Either extractedTexts, base64FileData, or base64FilesData must be provided",
       );
     }
 
