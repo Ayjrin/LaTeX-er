@@ -1,2 +1,2 @@
-export { getGeminiClient, safetySettings, generationConfig, base64ToGenerativePart, fileToGenerativePart } from './client';
+export { getOpenRouterClient, generationConfig, base64ToMessageContent } from './client';
 export { convertResumeToLatex } from './resume-to-latex';

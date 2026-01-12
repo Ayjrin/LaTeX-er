@@ -1,88 +1,48 @@
-import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
+import OpenAI from 'openai';
 
-// Initialize the Gemini API client
-const getGeminiClient = () => {
-  const apiKey = process.env.GEMINI_API_KEY;
+// Initialize the OpenRouter API client (uses OpenAI SDK)
+const getOpenRouterClient = () => {
+  const apiKey = process.env.OPENROUTER_API_KEY;
   
   if (!apiKey) {
-    throw new Error('GEMINI_API_KEY environment variable is not set');
+    throw new Error('OPENROUTER_API_KEY environment variable is not set');
   }
   
-  return new GoogleGenerativeAI(apiKey);
+  return new OpenAI({
+    baseURL: 'https://openrouter.ai/api/v1',
+    apiKey: apiKey,
+    defaultHeaders: {
+      'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000',
+      'X-Title': 'LaTeX Resume Converter',
+    },
+  });
 };
-
-// Safety settings to ensure appropriate content
-const safetySettings = [
-  {
-    category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-    threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-  },
-  {
-    category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-    threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-  },
-  {
-    category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-    threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-  },
-  {
-    category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-    threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-  },
-];
 
 // Generation config for the model
 const generationConfig = {
   temperature: 0.4,
-  topK: 32,
-  topP: 1,
-  maxOutputTokens: 8192,
+  top_p: 1,
+  max_tokens: 8192,
 };
 
-// Convert a file to a GoogleGenerativeAI.Part
-export const fileToGenerativePart = async (
-  file: File,
-  mimeType: string
-): Promise<{ inlineData: { data: string; mimeType: string } }> => {
-  const base64EncodedContent = await readFileAsBase64(file);
-  
-  return {
-    inlineData: {
-      data: base64EncodedContent,
-      mimeType,
-    },
-  };
-};
-
-// Helper function to read a file as base64
-const readFileAsBase64 = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        // Remove the data URL prefix (e.g., "data:image/jpeg;base64,")
-        const base64 = reader.result.split(',')[1];
-        resolve(base64);
-      } else {
-        reject(new Error('Failed to convert file to base64'));
-      }
-    };
-    reader.onerror = (error) => reject(error);
-  });
-};
-
-// Convert a base64 string to a GoogleGenerativeAI.Part
-export const base64ToGenerativePart = (
+// Convert base64 data to OpenAI message content format
+export const base64ToMessageContent = (
   base64Data: string,
   mimeType: string
-): { inlineData: { data: string; mimeType: string } } => {
+): {
+  type: "image_url";
+  image_url: {
+    url: string;
+  };
+} => {
+  // For PDFs and documents, we use image_url format with data URLs
+  // OpenAI's vision models can process PDFs and images this way
   return {
-    inlineData: {
-      data: base64Data,
-      mimeType,
+    type: 'image_url',
+    image_url: {
+      url: `data:${mimeType};base64,${base64Data}`,
     },
   };
 };
 
-export { getGeminiClient, safetySettings, generationConfig };
+export { getOpenRouterClient, generationConfig };

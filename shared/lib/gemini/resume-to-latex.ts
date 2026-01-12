@@ -1,8 +1,7 @@
 import {
-  getGeminiClient,
-  safetySettings,
+  getOpenRouterClient,
   generationConfig,
-  base64ToGenerativePart,
+  base64ToMessageContent,
 } from "./client";
 import fs from "fs";
 import path from "path";
@@ -92,32 +91,63 @@ export async function convertResumeToLatex(
     // Create the prompt with the template
     const promptWithTemplate = createPrompt(template);
 
-    const genAI = getGeminiClient();
+    const client = getOpenRouterClient();
 
-    // Get the Gemini 2.0 Flash model - supports multimodal input (PDF, DOCX, images)
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.0-flash-exp",
-      safetySettings,
-      generationConfig,
-    });
+    // Use GPT-4O through OpenRouter - best multimodal support for PDFs
+    const model = "openai/gpt-4o";
 
-    // Array to hold all content parts for the model
-    type ContentPart =
+    // Build messages array for OpenAI chat format
+    type UserMessageContent = 
       | string
-      | { inlineData: { data: string; mimeType: string } };
-    const contentParts: ContentPart[] = [promptWithTemplate];
+      | Array<{
+          type: "text";
+          text: string;
+        } | {
+          type: "image_url";
+          image_url: {
+            url: string;
+          };
+        }>;
 
-    // Primary path: Send files directly to Gemini (preserves formatting and layout)
+    const messages: Array<
+      | {
+          role: "system";
+          content: string;
+        }
+      | {
+          role: "user";
+          content: UserMessageContent;
+        }
+    > = [
+      {
+        role: "system",
+        content: "You are a professional resume formatter that converts resumes to clean, ATS-friendly LaTeX code.",
+      },
+    ];
+
+    // Primary path: Send files directly to OpenRouter (preserves formatting and layout)
     if (options.base64FilesData && options.mimeTypes) {
-      console.log(`Processing ${options.base64FilesData.length} files directly (multimodal approach)`);
+      console.log(`Processing ${options.base64FilesData.length} files directly (multimodal approach via OpenRouter)`);
       
+      const userContent: Array<{
+        type: "text";
+        text: string;
+      } | {
+        type: "image_url";
+        image_url: {
+          url: string;
+        };
+      }> = [
+        { type: "text", text: promptWithTemplate },
+      ];
+
       for (let i = 0; i < options.base64FilesData.length; i++) {
         const base64Data = options.base64FilesData[i];
         const mimeType = options.mimeTypes[i];
 
         if (base64Data && mimeType) {
-          const part = base64ToGenerativePart(base64Data, mimeType);
-          contentParts.push(part);
+          const part = base64ToMessageContent(base64Data, mimeType);
+          userContent.push(part);
         }
       }
 
@@ -125,54 +155,78 @@ export async function convertResumeToLatex(
         const fileList = options.fileNames
           .map((name) => `- ${name}`)
           .join("\n");
-        contentParts.push(
-          `\nNote: The following documents have been provided:\n${fileList}\n\nPlease analyze the complete documents (including formatting and layout) and create a comprehensive, professional LaTeX resume.`,
-        );
+        userContent.push({
+          type: "text",
+          text: `\nNote: The following documents have been provided:\n${fileList}\n\nPlease analyze the complete documents (including formatting and layout) and create a comprehensive, professional LaTeX resume.`,
+        });
       }
-    } 
+
+      messages.push({
+        role: "user",
+        content: userContent,
+      });
+    }
     // Single file path
     else if (options.base64FileData && options.mimeType) {
-      console.log('Processing single file directly (multimodal approach)');
-      const part = base64ToGenerativePart(
+      console.log('Processing single file directly (multimodal approach via OpenRouter)');
+      
+      const part = base64ToMessageContent(
         options.base64FileData,
         options.mimeType,
       );
-      contentParts.push(part);
+
+      messages.push({
+        role: "user",
+        content: [
+          { type: "text", text: promptWithTemplate },
+          part,
+        ],
+      });
     }
     // Legacy text-based path (fallback for backward compatibility)
     else if (options.extractedTexts && options.extractedTexts.length > 0) {
       console.log(`[LEGACY] Processing ${options.extractedTexts.length} extracted text documents`);
       console.warn('Warning: Using text extraction instead of direct file processing. Consider updating to file-based approach.');
       
+      let textContent = promptWithTemplate;
+      
       for (let i = 0; i < options.extractedTexts.length; i++) {
         const text = options.extractedTexts[i];
         const fileName = options.fileNames?.[i] || `Document ${i + 1}`;
         
-        contentParts.push(
-          `\n--- Resume Content from ${fileName} ---\n${text}\n--- End of Resume Content ---\n`
-        );
+        textContent += `\n--- Resume Content from ${fileName} ---\n${text}\n--- End of Resume Content ---\n`;
       }
       
       if (options.fileNames && options.fileNames.length > 0) {
         const fileList = options.fileNames
           .map((name) => `- ${name}`)
           .join("\n");
-        contentParts.push(
-          `\nNote: The above content was extracted from:\n${fileList}\n\nPlease use this information to create a comprehensive, professional LaTeX resume.`
-        );
+        textContent += `\nNote: The above content was extracted from:\n${fileList}\n\nPlease use this information to create a comprehensive, professional LaTeX resume.`;
       }
-    } 
+
+      messages.push({
+        role: "user",
+        content: textContent,
+      });
+    }
     else {
       throw new Error(
         "Invalid options: Either base64FileData, base64FilesData, or extractedTexts must be provided",
       );
     }
 
-    // Generate content using the model with all parts
-    const result = await model.generateContent(contentParts);
+    // Call OpenRouter API
+    const response = await client.chat.completions.create({
+      model: model,
+      messages: messages,
+      ...generationConfig,
+    });
 
-    const response = await result.response;
-    const text = response.text();
+    const text = response.choices[0]?.message?.content || "";
+
+    if (!text) {
+      throw new Error("No response from OpenRouter API");
+    }
 
     // Extract just the LaTeX code if it's wrapped in markdown code blocks
     const latexCode = extractLatexCode(text);
