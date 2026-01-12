@@ -84,37 +84,75 @@ interface ConvertResumeToLatexOptions {
 export async function convertResumeToLatex(
   options: ConvertResumeToLatexOptions,
 ): Promise<string> {
+  console.log('\n🔧 convertResumeToLatex() called');
+  console.log('📥 Options received:', {
+    hasExtractedTexts: !!options.extractedTexts,
+    extractedTextsLength: options.extractedTexts?.length,
+    hasBase64FilesData: !!options.base64FilesData,
+    base64FilesDataLength: options.base64FilesData?.length,
+    hasMimeTypes: !!options.mimeTypes,
+    mimeTypesLength: options.mimeTypes?.length,
+    hasFileNames: !!options.fileNames,
+    fileNamesLength: options.fileNames?.length,
+    multipleFiles: options.multipleFiles,
+  });
+  
   try {
     // Get the LaTeX template
+    console.log('📋 Loading LaTeX template...');
     const template = getResumeTemplate();
+    console.log(`✅ Template loaded: ${template.length} characters`);
 
     // Create the prompt with the template
+    console.log('✍️  Creating prompt...');
     const promptWithTemplate = createPrompt(template);
+    console.log(`✅ Prompt created: ${promptWithTemplate.length} characters`);
 
+    console.log('🔌 Initializing Gemini client...');
     const genAI = getGeminiClient();
+    console.log('✅ Gemini client initialized');
 
     // Use Gemini 1.5 Pro - natively supports PDF, DOCX, images, and more
+    console.log('🤖 Getting Gemini model: gemini-1.5-pro');
     const model = genAI.getGenerativeModel({
       model: "gemini-1.5-pro",
       generationConfig,
     });
+    console.log('✅ Model initialized with config:', generationConfig);
 
     // Build content parts for Gemini
+    console.log('📦 Building content parts...');
     const contentParts: Array<string | { inlineData: { data: string; mimeType: string } }> = [
       promptWithTemplate
     ];
+    console.log(`   Added prompt to content parts (${promptWithTemplate.length} chars)`);
 
     // Primary path: Send files directly to Gemini (preserves formatting and layout)
     if (options.base64FilesData && options.mimeTypes) {
-      console.log(`Processing ${options.base64FilesData.length} files directly (multimodal via Gemini)`);
+      console.log(`📁 Processing ${options.base64FilesData.length} file(s) directly (multimodal via Gemini)`);
       
       for (let i = 0; i < options.base64FilesData.length; i++) {
         const base64Data = options.base64FilesData[i];
         const mimeType = options.mimeTypes[i];
+        const fileName = options.fileNames?.[i] || `File ${i + 1}`;
+
+        console.log(`\n   📄 File ${i + 1}/${options.base64FilesData.length}: ${fileName}`);
+        console.log(`      MIME type: ${mimeType}`);
+        console.log(`      Base64 length: ${base64Data.length} chars`);
+        console.log(`      First 30 chars: ${base64Data.substring(0, 30)}...`);
 
         if (base64Data && mimeType) {
+          console.log(`      🔄 Converting to Gemini part...`);
           const part = base64ToGenerativePart(base64Data, mimeType);
+          console.log(`      ✅ Part created:`, {
+            hasInlineData: !!part.inlineData,
+            mimeType: part.inlineData?.mimeType,
+            dataLength: part.inlineData?.data?.length,
+          });
           contentParts.push(part);
+          console.log(`      ✅ Added to content parts (total: ${contentParts.length})`);
+        } else {
+          console.warn(`      ⚠️  Skipping file - missing data or MIME type`);
         }
       }
 
@@ -122,10 +160,12 @@ export async function convertResumeToLatex(
         const fileList = options.fileNames
           .map((name) => `- ${name}`)
           .join("\n");
-        contentParts.push(
-          `\nNote: The following documents have been provided:\n${fileList}\n\nPlease analyze the complete documents (including formatting and layout) and create a comprehensive, professional LaTeX resume.`,
-        );
+        const note = `\nNote: The following documents have been provided:\n${fileList}\n\nPlease analyze the complete documents (including formatting and layout) and create a comprehensive, professional LaTeX resume.`;
+        console.log(`\n   📝 Adding file list note (${note.length} chars)`);
+        contentParts.push(note);
       }
+      
+      console.log(`\n✅ Total content parts: ${contentParts.length}`);
     }
     // Single file path
     else if (options.base64FileData && options.mimeType) {
@@ -167,20 +207,50 @@ export async function convertResumeToLatex(
     }
 
     // Call Gemini API
+    console.log('\n🚀 Calling Gemini API with generateContent()...');
+    console.log(`   Content parts to send: ${contentParts.length}`);
+    console.log(`   Parts breakdown:`);
+    contentParts.forEach((part, idx) => {
+      if (typeof part === 'string') {
+        console.log(`      ${idx + 1}. String (${part.length} chars)`);
+      } else {
+        console.log(`      ${idx + 1}. File (${part.inlineData.mimeType}, ${part.inlineData.data.length} base64 chars)`);
+      }
+    });
+    
+    const apiStartTime = Date.now();
     const result = await model.generateContent(contentParts);
+    const apiDuration = Date.now() - apiStartTime;
+    console.log(`\n✅ Gemini API responded in ${apiDuration}ms`);
+    
+    console.log('📥 Getting response...');
     const response = await result.response;
+    console.log('✅ Response received');
+    
+    console.log('📄 Extracting text...');
     const text = response.text();
+    console.log(`✅ Text extracted: ${text.length} characters`);
 
     if (!text) {
+      console.error('❌ NO TEXT IN RESPONSE');
       throw new Error("No response from Gemini API");
     }
 
     // Extract just the LaTeX code if it's wrapped in markdown code blocks
+    console.log('🔍 Extracting LaTeX code from response...');
     const latexCode = extractLatexCode(text);
+    console.log(`✅ LaTeX code extracted: ${latexCode.length} characters`);
+    console.log(`📝 First 100 chars: ${latexCode.substring(0, 100)}...`);
 
     return latexCode;
   } catch (error) {
-    console.error("Error converting resume to LaTeX:", error);
+    console.error('\n❌❌❌ ERROR IN convertResumeToLatex() ❌❌❌');
+    console.error('Error type:', error instanceof Error ? error.constructor.name : typeof error);
+    console.error('Error message:', error instanceof Error ? error.message : String(error));
+    console.error('Full error:', error);
+    if (error instanceof Error && error.stack) {
+      console.error('Stack trace:', error.stack);
+    }
     throw new Error(
       `Failed to convert resume to LaTeX: ${error instanceof Error ? error.message : String(error)}`,
     );

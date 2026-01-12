@@ -2,13 +2,20 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Initialize the Gemini API client
 const getGeminiClient = () => {
+  console.log('🔑 Getting Gemini API key...');
   const apiKey = process.env.GEMINI_API_KEY;
   
   if (!apiKey) {
+    console.error('❌ GEMINI_API_KEY is not set in environment variables');
+    console.error('Available env vars:', Object.keys(process.env).filter(k => k.includes('API') || k.includes('KEY')));
     throw new Error('GEMINI_API_KEY environment variable is not set');
   }
   
-  return new GoogleGenerativeAI(apiKey);
+  console.log(`✅ API key found: ${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 4)}`);
+  console.log('🔌 Creating GoogleGenerativeAI client...');
+  const client = new GoogleGenerativeAI(apiKey);
+  console.log('✅ Client created successfully');
+  return client;
 };
 
 // Generation config for the model
