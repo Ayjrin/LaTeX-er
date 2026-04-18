@@ -19,6 +19,8 @@
 \usepackage{tabularx}
 \usepackage{fontawesome5}
 \usepackage{multicol}
+\usepackage{xcolor}
+\usepackage[normalem]{ulem}
 \setlength{\multicolsep}{-3.0pt}
 \setlength{\columnsep}{-1pt}
 \input{glyphtounicode}
@@ -27,7 +29,7 @@
 %%%% FONTS %%%%%
 %---------------
 % Reference guide for Roman, Sans Serif and Typewriter typefaces
-% Uncomment only ONE font option
+% Uncomment only ONE font option. These are all standard on Overleaf.
 
 %------------------------
 % ROMAN (SERIF) FONTS
@@ -105,6 +107,9 @@
 \pagestyle{fancy}
 \fancyhf{} % clear all header and footer fields
 \fancyfoot{}
+% For page numbering (useful for multi-page resumes), uncomment the following:
+% \fancyfoot[C]{\thepage}
+
 \renewcommand{\headrulewidth}{0pt}
 \renewcommand{\footrulewidth}{0pt}
 
@@ -171,6 +176,19 @@
 \newcommand{\resumeItemListStart}{\begin{itemize}}
 \newcommand{\resumeItemListEnd}{\end{itemize}\vspace{-5pt}}
 
+\newcommand{\resumeItalicItem}[2]{
+    \begin{tabular*}{1.0\textwidth}[t]{l@{\extracolsep{\fill}}r}
+      \textit{\small #1} & \textbf{\small #2} \\
+    \end{tabular*}\vspace{-2pt}
+}
+
+\newcommand{\resumeDegreeHeading}[2]{
+  \vspace{-2pt}\item
+    \begin{tabular*}{1.0\textwidth}[t]{l@{\extracolsep{\fill}}r}
+      \textbf{#1} & \textbf{\small #2} \\
+    \end{tabular*}\vspace{0pt}
+}
+
 %-------------------------------------------
 %%%%%%  RESUME STARTS HERE  %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %-------------------------------------------
@@ -180,93 +198,151 @@
 %----------HEADING----------
 \begin{center}
     {\Huge \scshape Lorem Ipsum} \\ \vspace{2pt}
-    \href{mailto:email@example.com}{email@example.com}
+    {\text{Location or Citizenship Status}}\\ \vspace{1pt}
+    \href{mailto:email@example.com}{\uline{email@example.com}}
+    \text{ $|$ }
+    \href{https://www.linkedin.com/in/firstlast/}{\uline{linkedin.com/in/firstlast}}
+    \text{ $|$ }
+    \href{https://www.yourportfolio.com/}{\uline{yourportfolio.com}}
 \end{center}
-
-%-----------CERTIFICATIONS-----------
-\section{Certifications}
-\resumeSubHeadingListStart
-    \item
-    \begin{tabular}{p{3cm} p{10cm}}
-    \textbf{Lorem}      & Lorem ipsum dolor sit amet, consectetuer adipiscing elit. \\
-    \textbf{Ipsum}      & Sed diam nonummy nibh euismod tincidunt ut laoreet dolore magna. \\
-    \textbf{Dolor}      & Aliquam erat volutpat. \\ 
-    \textbf{Sit}        & Ut wisi enim ad minim veniam, quis nostrud exerci. \\
-    \end{tabular}
-\resumeSubHeadingListEnd
-
-%-----------EDUCATION-----------
-\section{Education}
-\resumeSubHeadingListStart
-    \resumeSubheading
-      {Lorem Ipsum University}{Sept. 20XX -- May 20YY}
-      {Bachelor of Science in Lorem}{Dolor Sit Amet}
-    \resumeItemListStart
-        \resumeItem{GPA: 9.99/10}
-    \resumeItemListEnd
-\resumeSubHeadingListEnd
+\vspace{2pt}
 
 %-----------WORK EXPERIENCE-----------
 \section{Work Experience}
 \resumeSubHeadingListStart
     \resumeSubheading
-      {Lorem Ipsum Corporation}{Aug. 20YY -- Present}
-      {Junior Lorem Engineer}{Remote}
+      {Job Title}{Date Range}
+      {Company Name}{Location}
       \resumeItemListStart
           \resumeItem{Lorem ipsum dolor sit amet, consectetur adipiscing elit.}
           \resumeItem{Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.}
           \resumeItem{Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.}
+      \resumeItemListEnd
+
+    \resumeSubheading
+      {Job Title}{Date Range}
+      {Company Name}{Location}
+      \resumeItemListStart
           \resumeItem{Duis aute irure dolor in reprehenderit in voluptate velit esse cillum.}
-      \resumeItemListEnd
-    \resumeSubheading
-      {Dolor Sit Industries}{Mar. 20XX -- Dec. 20XX}
-      {Lorem Customer Service}{Consectetur Adipiscing}
-      \resumeItemListStart
           \resumeItem{Excepteur sint occaecat cupidatat non proident, sunt in culpa.}
-          \resumeItem{Sed ut perspiciatis unde omnis iste natus error sit voluptatem.}
-      \resumeItemListEnd
-    \resumeSubheading
-      {Amet Consectetur}{June 20XX -- Mar. 20XX}
-      {Lorem Sales Representative}{Tempor Incididunt}
-      \resumeItemListStart
-          \resumeItem{Totam rem aperiam, eaque ipsa quae ab illo inventore veritatis.}
-          \resumeItem{Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut.}
       \resumeItemListEnd
 \resumeSubHeadingListEnd
+\vspace{2pt}
 
-%-----------EXTRACURRICULAR / LEADERSHIP-----------
-\section{Extracurricular \& Leadership}
+
+%-----------COMMUNITY-----------
+\section{Community}
 \resumeSubHeadingListStart
     \resumeSubheading
-      {Lorem Gaming Club}{June 20XX -- May 20XX}
-      {Founding President}{Sit Amet, Consectetur}
-    \resumeSubheading
-      {Ipsum Dev Club}{May 20YY -- Present}
-      {President}{Dolor Sit, Amet}
+        {Role Title}{Date Range}
+        {Organization Name}{Location}
+            \resumeItemListStart
+                \resumeItem{Lorem ipsum dolor sit amet, consectetur adipiscing elit.}
+                \resumeItem{Presented educational talks and managed community engagement.}
+            \resumeItemListEnd
 \resumeSubHeadingListEnd
+\vspace{2pt}
+
 
 %-----------PROJECTS-----------
 \section{Projects}
 \resumeSubHeadingListStart
     \resumeProjectHeading
-      {\textbf{Lorem Structures and Algorithms Library} $|$ \emph{C++}}{}
+        {\textbf{Project Name} $|$ \emph{Technologies Used}}{}
+        \resumeItemListStart
+            \resumeItem{Lorem ipsum dolor sit amet, consectetur adipiscing elit.}
+            \resumeItem{Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.}
+        \resumeItemListEnd
+
+    \resumeProjectHeading
+        {\textbf{Project Name} $|$ \emph{Technologies Used}}{}
+        \resumeItemListStart
+            \resumeItem{Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.}
+            \resumeItem{Duis aute irure dolor in reprehenderit in voluptate velit esse cillum.}
+        \resumeItemListEnd
+\resumeSubHeadingListEnd
+\vspace{2pt}
+
+%-----------LEADERSHIP EXPERIENCE-----------
+\section{Leadership Experience}
+\resumeSubHeadingListStart
+    \resumeSubheading
+      {Role Title}{Date Range}
+      {Organization Name}{Location}
       \resumeItemListStart
           \resumeItem{Lorem ipsum dolor sit amet, consectetur adipiscing elit.}
-      \resumeItemListEnd
-    \resumeProjectHeading
-      {\textbf{Ipsum Data Crawler} $|$ \emph{Python}}{}
-      \resumeItemListStart
-          \resumeItem{Sed ut perspiciatis unde omnis iste natus error sit voluptatem.}
-          \resumeItem{Accusantium doloremque laudantium, totam rem aperiam.}
+          \resumeItem{Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.}
       \resumeItemListEnd
 \resumeSubHeadingListEnd
+\vspace{2pt}
 
-%-----------TECHNICAL SKILLS-----------
+%-----------EDUCATION-----------
+\section{Education}
+\resumeSubHeadingListStart
+    \resumeDegreeHeading
+    {Degree Name}{GPA: X.X/4.0}
+    \resumeItalicItem{Institution Name}{Date Range}
+    \resumeItalicItem{Previous Institution Name}{Date Range}
+\resumeSubHeadingListEnd
+\vspace{2pt}
+
+%-----------TWO COLUMN SECTION: CERTIFICATIONS & TECHNICAL SKILLS-----------
+\begin{minipage}[t]{0.48\textwidth}
+\section{Certifications}
+\resumeSubHeadingListStart
+    \item
+    \begin{tabular*}{\textwidth}{l@{\extracolsep{\fill}}r}
+    \textbf{Cert Name}      & Issuing Authority \\
+    \textbf{Cert Name}      & Issuing Authority \\
+    \textbf{Cert Name}      & Issuing Authority \\
+    \end{tabular*}
+\resumeSubHeadingListEnd
+\end{minipage}%
+\hfill
+\begin{minipage}[t]{0.48\textwidth}
 \section{Technical Skills}
 \resumeSubHeadingListStart
-    \resumeItem{ \textbf{Languages:} C++, Python, JavaScript }
-    \resumeItem{ \textbf{Libraries:} Lorem, Ipsum, Dolor }
-    \resumeItem{ \textbf{Tools:} Consectetur, Adipiscing, Elit }
+    \item
+    \begin{tabularx}{\textwidth}{X}
+    \textbf{Languages and Frameworks} \\
+    Skill 1, Skill 2, Skill 3, Skill 4, Skill 5 \\[6pt]
+    \textbf{Technologies and Tools} \\
+    Skill 1, Skill 2, Skill 3, Skill 4, Skill 5 \\
+    \end{tabularx}
 \resumeSubHeadingListEnd
+\end{minipage}
+
+\vspace{2pt}
+
+%-----------SINGLE COLUMN SECTION: CERTIFICATIONS & TECHNICAL SKILLS-----------
+% Use these instead of the minipages above if you want full-width sections
+
+% \section{Certifications}
+% \resumeSubHeadingListStart
+%     \item
+%     \begin{tabular}{p{3cm} p{10cm}}
+%     \textbf{Cert Name}      & Issuing Authority or Description of the certification. \\
+%     \textbf{Cert Name}      & Issuing Authority or Description of the certification. \\
+%     \end{tabular}
+% \resumeSubHeadingListEnd
+% \vspace{2pt}
+
+
+% \section{Technical Skills}
+%  \begin{itemize}[leftmargin=0.15in, label={}]
+%     \small{\item{
+%      \textbf{Languages}{: Skill 1, Skill 2, Skill 3, Skill 4} \\
+%      \textbf{Frameworks}{: Skill 1, Skill 2, Skill 3, Skill 4} \\
+%      \textbf{Technologies}{: Skill 1, Skill 2, Skill 3, Skill 4} \\
+%      \textbf{Tools}{: Skill 1, Skill 2, Skill 3, Skill 4}
+%     }}
+%  \end{itemize}
+% \vspace{2pt}
+
+
+\vspace{2pt}
+
+% For a two-page resume, uncomment the following line to force a page break:
+% \newpage
 
 \end{document}

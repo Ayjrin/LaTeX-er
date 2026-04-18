@@ -22,7 +22,8 @@ const getGeminiClient = () => {
 const generationConfig = {
   temperature: 0.4,
   topP: 1,
-  maxOutputTokens: 8192,
+  maxOutputTokens: 8192,  // Sufficient for a full resume (typically 500-1500 tokens)
+  topK: 40,
 };
 
 // Convert base64 data to Gemini format (supports PDF, DOCX, images, etc.)
