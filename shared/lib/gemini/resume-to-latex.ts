@@ -121,10 +121,10 @@ export async function convertResumeToLatex(
     const genAI = getGeminiClient();
     console.log("✅ Gemini client initialized");
 
-    // Use Gemini 1.5 Pro - stable model with multimodal support (PDF, DOCX, images)
-    console.log("🤖 Getting Gemini model: gemini-1.5-pro-002");
+    // Use Gemini 3.5 Flash - latest frontier model for high-performance extraction and coding
+    console.log("🤖 Getting Gemini model: gemini-3.5-flash");
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-pro-002",
+      model: "gemini-3.5-flash",
       generationConfig,
     });
     console.log("✅ Model initialized with config:", generationConfig);
